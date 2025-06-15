@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  InstagramRawProcessorS3Bucket:
+    Type: AWS::S3::Bucket
+
+  InstagramRawProcessorLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: InstagramRawProcessor
+      Handler: app.lambda_handler
+      CodeUri: InstagramRawProcessor/
+      Runtime: python3.12
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt InstagramRawProcessorRole.Arn
+      Environment:
+        Variables:
+          SECRET_NAME: "google_drive_api"
+          REGION_NAME: "us-east-1"
+      Events:
+        S3UploadTrigger:
+          Type: S3
+          Properties:
+            Bucket: !Ref InstagramRawProcessorS3Bucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "InstagramAutomation/Raw/"
+
+  InstagramRawProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: InstagramRawProcessorRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InstagramRawProcessorSecretsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: "secretsmanager:GetSecretValue"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:google_drive_api-*"
+
+Outputs:
+  InstagramRawProcessorLambdaFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt InstagramRawProcessorLambda.Arn
