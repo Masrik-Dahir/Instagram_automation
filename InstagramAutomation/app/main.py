@@ -94,7 +94,7 @@ def load_cookies(context):
 def main():
     with sync_playwright() as p:
         # 1) Launch browser
-        browser = p.chromium.launch(headless=True, slow_mo=300)
+        browser = p.chromium.launch(headless=False, slow_mo=300)
 
         # 2) Create a new browser context
         context = browser.new_context()

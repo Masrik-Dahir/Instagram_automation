@@ -117,6 +117,7 @@ docker build -t instagram-automation .\InstagramAutomation\
 
 ```bash
 docker run \
+  -ti --init \
   -e AWS_ACCESS_KEY_ID=your_key \
   -e AWS_SECRET_ACCESS_KEY=your_secret \
   -e AWS_DEFAULT_REGION=us-east-1 \

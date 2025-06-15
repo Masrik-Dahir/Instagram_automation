@@ -14,6 +14,8 @@ RUN apt update && \
     libasound2 libdrm2 libgbm1 libxshmfence1 libxss1 fonts-liberation && \
     apt clean && rm -rf /var/lib/apt/lists/*
 
+RUN apt update && apt install xvfb -y
+
 # Upgrade pip and install Python packages
 RUN python3 -m pip install --upgrade pip && \
     pip install \
@@ -33,4 +35,4 @@ COPY ./app /app
 # EXPOSE 5000
 
 # Launch using xvfb-run for headful Chromium (optional)
-CMD ["python3", "main.py"]
+CMD ["xvfb-run", "-a","python3", "main.py"]
