@@ -4,10 +4,31 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 import logging
-from playwright_stealth import stealth_sync
+from datetime import datetime
 
 S3_BUCKET_NAME = "masrikdahir-lambda"
 S3_COOKIE_KEY = "InstagramAutomation/cookies.json"
+
+
+def write_item_to_dynamodb(table_name, item, region_name='us-east-1'):
+    """
+    Write an item to a DynamoDB table.
+
+    :param table_name: Name of the DynamoDB table
+    :param item: A dictionary representing the item to write
+    :param region_name: AWS region (default: us-east-1)
+    :return: Response from DynamoDB or None on error
+    """
+    dynamodb = boto3.resource('dynamodb', region_name=region_name)
+    table = dynamodb.Table(table_name)
+
+    try:
+        response = table.put_item(Item=item)
+        logging.info(f"✅ Successfully wrote item to {table_name}: {item}")
+        return response
+    except ClientError as e:
+        logging.error(f"❌ Failed to write item to {table_name}: {e}")
+        return None
 
 def get_first_n_items(table_name, n, region_name='us-east-1'):
     dynamodb = boto3.resource('dynamodb', region_name=region_name)
@@ -98,54 +119,111 @@ def main():
 
         # 2) Create a new browser context
         context = browser.new_context()
-        load_cookies(context)  # Load cookies from file if present
+        isCookied = load_cookies(context)  # Load cookies from file if present
+        print(f"Cookied: {str(isCookied)}")
 
-        # 3) Open a new page
         page = context.new_page()
         page.goto("https://www.instagram.com/masrikdahir/")  # Replace with your login URL
 
-        # 4) Check if the "Log in" button is visible (instead of checking page title)
-        #    Adjust the selector for your actual "Log in" button text
-        if page.is_visible("button:has-text('Log in')"):
-            print("Log in button found. Need to log in.")
-
-            username = get_secret("instagram_main")["username"]
-            password = get_secret("instagram_main")["password"]
-
-            # Fill out login form
-            page.fill("input[name='username']", username)
-            page.fill("input[name='password']", password)
-            page.click("button[type='submit']")
+        if(not isCookied and page.is_visible("button:has-text('Log in')")):
             try:
-                page.wait_for_selector("text=Profile", timeout=10000)
-                page.goto("https://www.instagram.com/masrikdahir/")
-                print("Login successful. Found 'Masrik Dahir'. Saving cookies...")
-                save_cookies(context)
+                print("Logging in")
+                username = get_secret("instagram_main")["username"]
+                password = get_secret("instagram_main")["password"]
+
+                # Fill out login form
+                page.fill("input[name='username']", username)
+                page.fill("input[name='password']", password)
+                page.click("button[type='submit']")
+                try:
+                    page.wait_for_selector("text=Profile", timeout=10000)
+                    page.goto("https://www.instagram.com/masrikdahir/")
+                    print("Login successful. Found 'Masrik Dahir'. Saving cookies...")
+                    save_cookies(context)
+                except:
+                    print("Error: Timed out waiting for 'Masrik Dahir'. Check the selector or credentials.")
+                    write_item_to_dynamodb(
+                        table_name="last_updated",
+                        item={
+                            "key": "InstagramAutomation",
+                            "Result": "Unsuccessful - Profile Loading Timeout",
+                            "Timestamp": datetime.utcnow().isoformat() + "Z"  # ISO 8601 format in UTC
+                        }
+                    )
+
+                    return {
+                        "statusCode": 500,
+                        "body": json.dumps({
+                            "message": "Timeout Error",
+                        }),
+                    }
             except:
-                print("Warning: Timed out waiting for 'Masrik Dahir'. Check the selector or credentials.")
-        else:
-            print("No 'Log in' button found. Likely already logged in via cookies.")
+                print("Error: They have blocked this IP")
+
+                write_item_to_dynamodb(
+                    table_name="last_updated",
+                    item={
+                        "key": "InstagramAutomation",
+                        "Result": "Unsuccessful - Log In blocked",
+                        "Timestamp": datetime.utcnow().isoformat() + "Z"  # ISO 8601 format in UTC
+                    }
+                )
+
+                return {
+                    "statusCode": 500,
+                    "body": json.dumps({
+                        "message": "Blocked IP",
+                    }),
+                }
+
+        # 3) Check if the "Log in" button is visible (instead of checking page title)
+        #    Adjust the selector for your actual "Log in" button text
+        print("Already logged in via cookies.")
+        print("Profile page:", page.content())
+
 
         # Dynamo Stuff
-        links = [i["profile_link"] for i in get_first_n_items("instagram_unfollowers", 100)]
-        for i in links[:20]:
-            page.goto(i)
-            page.wait_for_selector("text=Following", timeout=5000)
-            page.click("text=Following", timeout=5000)
-
+        links = [i["profile_link"] for i in get_first_n_items("instagram_unfollowers", 1000)]
+        counter = 0
+        for i in links:
+            if counter >= 10:
+                break
             try:
-                page.wait_for_selector('div[role="dialog"]', timeout=5000)
-                page.click("text=Unfollow", timeout=5000)
+                page.goto(i)
+                page.wait_for_selector("text=Following", timeout=5000)
+                page.click("text=Following", timeout=5000)
+
+                try:
+                    page.wait_for_selector('div[role="dialog"]', timeout=5000)
+                    page.click("text=Unfollow", timeout=5000)
+                except:
+                    pass
+
+                print(delete_item_from_dynamodb(table_name="instagram_unfollowers",
+                                                key={"profile_link": i}))
+                print(f"Removed {i}")
+                counter += 1
             except:
-                None
-            print(delete_item_from_dynamodb(table_name="instagram_unfollowers",
-                                            key={"profile_link": i}))
+                if not page.is_visible("button:has-text('Log in')"):
+                    print(delete_item_from_dynamodb(table_name="instagram_unfollowers",
+                                                key={"profile_link": i}))
+                print(f"Can't load {i}")
+                pass
 
         # 5) Navigate to a page that requires login
         print("Profile page title:", page.title())
 
         # Close the browser
         browser.close()
+
+    write_item_to_dynamodb(
+        table_name="last_updated",
+        item={
+            "key": "InstagramAutomation",
+            "Result": "Success",
+            "Timestamp": datetime.utcnow().isoformat() + "Z"  # ISO 8601 format in UTC
+        }
+    )
 
     return {
         "statusCode": 200,
