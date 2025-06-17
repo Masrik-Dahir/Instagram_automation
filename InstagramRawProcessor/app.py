@@ -92,10 +92,6 @@ def lambda_handler(event, context):
                 except e:
                     logging.error(
                         f"[Error] Unable to write to DynamoDB table {'instagram_unfollowers'}, item {unfollower}: {e}")
-                    return {
-                        'statusCode': 500,
-                        'body': "[Error] Unable to write to DynamoDB"
-                    }
 
             write_item_to_dynamodb(
                 table_name="last_updated",
