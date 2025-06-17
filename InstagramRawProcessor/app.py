@@ -25,10 +25,10 @@ def write_item_to_dynamodb(table_name, item, region_name='us-east-1'):
 
     try:
         response = table.put_item(Item=item)
-        logging.info(f"[Success] Successfully wrote item to {table_name}: {item}")
+        logging.info(f"Successfully wrote item to {table_name}: {item}")
         return response
     except ClientError as e:
-        logging.error(f"[Error] Failed to write item to {table_name}: {e}")
+        logging.error(f"Failed to write item to {table_name}: {e}")
         return None
 
 
@@ -69,10 +69,10 @@ def lambda_handler(event, context):
             bucket_name = event['Records'][0]['s3']['bucket']['name']
             object_key = event['Records'][0]['s3']['object']['key']
         except e:
-            logging.error(f"[Error] Unable to get data from S3: {e}")
+            logging.error(f"[Unable to get data from S3: {e}")
             return {
                 'statusCode': 500,
-                'body': "[Error]Unable to get data from S3"
+                'body': "Unable to get data from S3"
             }
 
         # Download zip file to /tmp
@@ -91,7 +91,7 @@ def lambda_handler(event, context):
                     )
                 except e:
                     logging.error(
-                        f"[Error] Unable to write to DynamoDB table {'instagram_unfollowers'}, item {unfollower}: {e}")
+                        f"Unable to write to DynamoDB table {'instagram_unfollowers'}, item {unfollower}: {e}")
 
             write_item_to_dynamodb(
                 table_name="last_updated",
@@ -103,28 +103,28 @@ def lambda_handler(event, context):
             )
         except e:
             logging.error(
-                f"[Error] Unable to write to DynamoDB table {'last_updated'}, item {'InstagramRawProcessor'}: {e}")
+                f"Unable to write to DynamoDB table {'last_updated'}, item {'InstagramRawProcessor'}: {e}")
             return {
                 'statusCode': 500,
-                'body': "[Error] Unable to write to DynamoDB"
+                'body': "Unable to write to DynamoDB"
             }
 
         # Delete file from S3 after processing
         try:
             s3.delete_object(Bucket=bucket_name, Key=object_key)
-            logging.info(f"[Success] Successfully deleted {object_key} from bucket {bucket_name}")
+            logging.info(f"Successfully deleted {object_key} from bucket {bucket_name}")
         except Exception as e:
-            logging.error(f"[Error] Failed to delete {object_key} from S3: {e}")
+            logging.error(f"Failed to delete {object_key} from S3: {e}")
 
         # Process zip file
-        logging.info(f"[Success]")
+        logging.info(f"Success")
         return {
             'statusCode': 200,
-            'body': "[Success]"
+            'body': "Success"
         }
     except e:
-        logging.error(f"[Error]Unable to parse json for unfollowers: {e}")
+        logging.error(f"Unable to parse json for unfollowers: {e}")
         return {
             'statusCode': 500,
-            'body': "[Error] Unable to parse json for unfollowers"
+            'body': "Unable to parse json for unfollowers"
         }
