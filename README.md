@@ -85,7 +85,7 @@ Error saving credentials: error storing credentials - err: exit status 1, out: `
 ### 3. Build, Tag & Push Docker Image
 
 ```bash
-docker docker build -t instagram-automation .\InstagramAutomation\
+docker build -t instagram-automation ./InstagramAutomation/
 docker tag instagram-automation:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/instagram-automation:latest
 docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/instagram-automation:latest
 ```

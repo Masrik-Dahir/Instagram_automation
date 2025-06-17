@@ -24,10 +24,10 @@ def write_item_to_dynamodb(table_name, item, region_name='us-east-1'):
 
     try:
         response = table.put_item(Item=item)
-        logging.info(f"✅ Successfully wrote item to {table_name}: {item}")
+        logging.info(f"Successfully wrote item to {table_name}: {item}")
         return response
     except ClientError as e:
-        logging.error(f"❌ Failed to write item to {table_name}: {e}")
+        logging.error(f"Failed to write item to {table_name}: {e}")
         return None
 
 def get_first_n_items(table_name, n, region_name='us-east-1'):
@@ -90,9 +90,9 @@ def save_cookies(context):
     try:
         cookie_data = json.dumps(cookies, indent=4).encode("utf-8")
         s3.put_object(Bucket=S3_BUCKET_NAME, Key=S3_COOKIE_KEY, Body=cookie_data)
-        logging.info("✅ Cookies saved to S3.")
+        logging.info("Cookies saved to S3.")
     except ClientError as e:
-        logging.error(f"❌ Failed to save cookies to S3: {e}")
+        logging.error(f"Failed to save cookies to S3: {e}")
 
 def load_cookies(context):
     s3 = boto3.client("s3")
@@ -102,13 +102,13 @@ def load_cookies(context):
         content = response["Body"].read().decode("utf-8")
         cookies = json.loads(content)
         context.add_cookies(cookies)
-        logging.info("✅ Cookies loaded from S3.")
+        logging.info("Cookies loaded from S3.")
         return True
     except s3.exceptions.NoSuchKey:
-        logging.warning("⚠️ No cookie file in S3. Logging in fresh.")
+        logging.warning("No cookie file in S3. Logging in fresh.")
         return False
     except (ClientError, json.JSONDecodeError) as e:
-        logging.error(f"❌ Failed to load cookies from S3: {e}")
+        logging.error(f"Failed to load cookies from S3: {e}")
         return False
 
 
@@ -186,7 +186,7 @@ def main():
         links = [i["profile_link"] for i in get_first_n_items("instagram_unfollowers", 1000)]
         counter = 0
         for i in links:
-            if counter >= 10:
+            if counter >= 30:
                 break
             try:
                 page.goto(i)
