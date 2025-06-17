@@ -25,7 +25,7 @@ def write_item_to_dynamodb(table_name, item, region_name='us-east-1'):
 
     try:
         response = table.put_item(Item=item)
-        logging.info(f"✅ ✅ Successfully wrote item to {table_name}: {item}")
+        logging.info(f"✅ Successfully wrote item to {table_name}: {item}")
         return response
     except ClientError as e:
         logging.error(f"❌ Failed to write item to {table_name}: {e}")
